@@ -46,7 +46,7 @@ void LCD_2004_Menu::draw() {
     else {
       print("   ");
     }
-    print(m_menuItem[m_counterMenuItemSelector]->getItems()[i]->getSubmenuItemName());
+    print(m_menuItem[m_counterMenuItemSelector]->getItems()[i]->getName());
   }
 }
 

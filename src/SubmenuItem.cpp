@@ -7,15 +7,15 @@ SubmenuItem::SubmenuItem(const char* name) : m_name(name) {
     m_function = nullptr;
 }
 
-void SubmenuItem::setSubmenuItemFunction(void(*function)()) {
+void SubmenuItem::setMenuItemFunction(void(*function)()) {
     m_function = function;
 }
 
-String SubmenuItem::getSubmenuItemName() const {
+String SubmenuItem::getName() const {
     return m_name;
 }
 
-void SubmenuItem::invokeSubmenuItem() {
+void SubmenuItem::invokeMenuItem() {
     if (m_function) {
         m_function();
     }

@@ -10,6 +10,7 @@
 #include <Adafruit_AHTX0.h>
 
 #include "LCD_2004_Menu.h"
+#include "SubmenuItem.h"
 
 String ssid = "iPhone (Михаил)";
 std::string password = "q6d1nzngyzfuz";
@@ -171,35 +172,42 @@ void setup() {
   lcd.createChar(4, wifi_4);
   lcd.createChar(5, wifi_5);
 
+  MenuItem wifiSettingsMenu("WiFiSettings");
+  wifiSettingsMenu.addMenuItem(new SubmenuItem("fffffff"));
+  wifiSettingsMenu.getMenuItem(0).setMenuItemFunction(nullptr);
+
   lcd.addMenuItem(new MenuItem("-----Clock Menu-----"));
-  lcd.getMenuItem(0).addSubmenuItem(new SubmenuItem("Set Time"));
-  lcd.getMenuItem(0).getSubmenuItem(0).setSubmenuItemFunction(setTime);
-  lcd.getMenuItem(0).addSubmenuItem(new SubmenuItem("Set Date"));
-  lcd.getMenuItem(0).getSubmenuItem(1).setSubmenuItemFunction(setDate);
+  lcd.getMenuItem(0).addMenuItem(new SubmenuItem("Set Time"));
+  lcd.getMenuItem(0).getMenuItem(0).setMenuItemFunction(setTime);
+  lcd.getMenuItem(0).addMenuItem(new SubmenuItem("Set Date"));
+  lcd.getMenuItem(0).getMenuItem(1).setMenuItemFunction(setDate);
 
   lcd.addMenuItem(new MenuItem("-----Alarm Menu-----"));
-  lcd.getMenuItem(1).addSubmenuItem(new SubmenuItem("Set Alarm"));
-  lcd.getMenuItem(1).getSubmenuItem(0).setSubmenuItemFunction(nullptr);
-  lcd.getMenuItem(1).addSubmenuItem(new SubmenuItem("On/Off Alarm"));
-  lcd.getMenuItem(1).getSubmenuItem(1).setSubmenuItemFunction(nullptr);
+  lcd.getMenuItem(1).addMenuItem(new SubmenuItem("Set Alarm"));
+  lcd.getMenuItem(1).getMenuItem(0).setMenuItemFunction(nullptr);
+  lcd.getMenuItem(1).addMenuItem(new SubmenuItem("On/Off Alarm"));
+  lcd.getMenuItem(1).getMenuItem(1).setMenuItemFunction(nullptr);
 
   lcd.addMenuItem(new MenuItem("----Display Menu----"));
-  lcd.getMenuItem(2).addSubmenuItem(new SubmenuItem("On/Off Backlight"));
-  lcd.getMenuItem(2).getSubmenuItem(0).setSubmenuItemFunction(nullptr);
+  lcd.getMenuItem(2).addMenuItem(new SubmenuItem("On/Off Backlight"));
+  lcd.getMenuItem(2).getMenuItem(0).setMenuItemFunction(nullptr);
 
   lcd.addMenuItem(new MenuItem("-----WiFi  Menu-----"));
-  lcd.getMenuItem(3).addSubmenuItem(new SubmenuItem("On/Off WiFi"));
-  lcd.getMenuItem(3).getSubmenuItem(0).setSubmenuItemFunction(nullptr);
-  lcd.getMenuItem(3).addSubmenuItem(new SubmenuItem("Connect to WiFi"));
-  lcd.getMenuItem(3).getSubmenuItem(1).setSubmenuItemFunction(connectionToWiFi);
-  lcd.getMenuItem(3).addSubmenuItem(new SubmenuItem("Disconnect"));
-  lcd.getMenuItem(3).getSubmenuItem(2).setSubmenuItemFunction(disconnectWiFi);
-  lcd.getMenuItem(3).addSubmenuItem(new SubmenuItem("WiFi Networks"));
-  lcd.getMenuItem(3).getSubmenuItem(3).setSubmenuItemFunction(nullptr);
-  lcd.getMenuItem(3).addSubmenuItem(new SubmenuItem("WiFi Settings"));
-  lcd.getMenuItem(3).getSubmenuItem(4).setSubmenuItemFunction(nullptr);
-  lcd.getMenuItem(3).addSubmenuItem(new SubmenuItem("About Network"));
-  lcd.getMenuItem(3).getSubmenuItem(5).setSubmenuItemFunction(nullptr);
+  lcd.getMenuItem(3).addMenuItem(new SubmenuItem("On/Off WiFi"));
+  lcd.getMenuItem(3).getMenuItem(0).setMenuItemFunction(nullptr);
+  lcd.getMenuItem(3).addMenuItem(new SubmenuItem("Connect to WiFi"));
+  lcd.getMenuItem(3).getMenuItem(1).setMenuItemFunction(connectionToWiFi);
+  lcd.getMenuItem(3).addMenuItem(new SubmenuItem("Disconnect"));
+  lcd.getMenuItem(3).getMenuItem(2).setMenuItemFunction(disconnectWiFi);
+  lcd.getMenuItem(3).addMenuItem(new SubmenuItem("WiFi Networks"));
+  lcd.getMenuItem(3).getMenuItem(3).setMenuItemFunction(nullptr);
+  lcd.getMenuItem(3).addMenuItem(new MenuItem("WiFi Settings"));
+  lcd.getMenuItem(3).getMenuItem(4).addMenuItem(new SubmenuItem("kkk"));
+  lcd.getMenuItem(3).getMenuItem(4).getMenuItem(0).setMenuItemFunction(nullptr);
+  lcd.getMenuItem(3).getMenuItem(4).addMenuItem(new SubmenuItem("lll"));
+  lcd.getMenuItem(3).getMenuItem(4).getMenuItem(1).setMenuItemFunction(nullptr);
+  lcd.getMenuItem(3).addMenuItem(new SubmenuItem("About Network"));
+  lcd.getMenuItem(3).getMenuItem(5).setMenuItemFunction(nullptr);
 
   connectionToWiFi();
 }
