@@ -1,78 +1,81 @@
 #include "MenuItem.h"
 
-MenuItem::MenuItem(const char* name) : m_name(name) {
-  for (uint8_t i = 0; i < 255; ++i) {
-    m_baseMenu[i] = nullptr;
-  }
-  m_size = 0;
-  m_counterBaseMenuSelector = 0;
+MenuItem::MenuItem(const char* name) : m_name(name), m_function(nullptr) {
+  m_counterSelector = 0;
   while (m_name.length() < 17) {
     m_name += ' ';
   }
 }
 
 MenuItem::~MenuItem() {
-  for (uint8_t i = 0; i < 255; ++i) {
-    delete m_baseMenu[i];
+  for (size_t i = 0; i < m_menuItem.size(); ++i) {
+    delete m_menuItem[i];
   }
 }
 
-bool MenuItem::addMenuItem(BaseMenu* submenuItem) {
-  if (m_size == 255) {
+bool MenuItem::addMenuItem(MenuItem* menuItem) {
+  if (m_menuItem.size() == m_menuItem.max_size()) {
     return false;
   }
-  m_baseMenu[m_size] = submenuItem;
-  ++m_size;
+  m_menuItem.push_back(menuItem);
   return true;
 }
 
-BaseMenu& MenuItem::getMenuItem(uint8_t pos) {
-  return *m_baseMenu[pos];
-}
+// MenuItem& MenuItem::getMenuItem(size_t pos) {
+//   return *m_menuItem[pos];
+// }
 
-String MenuItem::getName() const {
+String MenuItem::getMenuName() const {
   return m_name;
 }
 
-BaseMenu** MenuItem::getItems() {
-  return m_baseMenu;
+std::vector<MenuItem*> MenuItem::getMenuItems() {
+  return m_menuItem;
 }
 
-uint8_t MenuItem::getMenuItemsSize() const {
-  return m_size;
+size_t MenuItem::getMenuItemSize() const {
+  return m_menuItem.size();
 }
 
-uint8_t MenuItem::getCounter() const {
-  return m_counterBaseMenuSelector;
+size_t MenuItem::getCounter() const {
+  return m_counterSelector;
 }
 
-void MenuItem::incrementCounterItemSelector() {
-  if (m_counterBaseMenuSelector < m_size) {
-    m_counterBaseMenuSelector++;
-    if (m_counterBaseMenuSelector == m_size) {
-      m_counterBaseMenuSelector = 0;
+void MenuItem::incrementMenuItemSelector() {
+  if (m_counterSelector < m_menuItem.size()) {
+    m_counterSelector++;
+    if (m_counterSelector == m_menuItem.size()) {
+      m_counterSelector = 0;
     }
   }
 }
 
-void MenuItem::decrementCounterItemSelector() {
-  if (m_counterBaseMenuSelector > 0) {
-    m_counterBaseMenuSelector--;
+void MenuItem::decrementMenuItemSelector() {
+  if (m_counterSelector > 0) {
+    m_counterSelector--;
   }
   else {
-    m_counterBaseMenuSelector = m_size - 1;
+    m_counterSelector = m_menuItem.size() - 1;
   }
 }
 
-void MenuItem::setCounterItemSelector(uint8_t i) {
-  if (i >= m_size) {
-    m_counterBaseMenuSelector = m_size - 1;
+void MenuItem::setMenuItemSelector(size_t i) {
+  if (i >= m_menuItem.size()) {
+    m_counterSelector = m_menuItem.size() - 1;
   }
   else {
-    m_counterBaseMenuSelector = i;
+    m_counterSelector = i;
   }
 }
 
-void MenuItem::invokeMenuItem() {
-  return m_baseMenu[m_counterBaseMenuSelector]->invokeMenuItem();
+void MenuItem::setMenuItemFunction(std::function<void()> function) {
+    m_function = function;
 }
+
+void MenuItem::invokeMenuItem() const {
+  if (m_function) {
+    m_function();
+  }
+}
+
+MenuItem::MenuItem() : MenuItem("LCD Menu") {}

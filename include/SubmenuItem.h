@@ -3,20 +3,19 @@
 
 #include <Arduino.h>
 
-#include "BaseMenu.h"
-
-class SubmenuItem : public BaseMenu {
+class SubmenuItem {
 public:
   SubmenuItem(const char* name);
-  bool addMenuItem(BaseMenu* menu) override {}
-  BaseMenu& getMenuItem(uint8_t pos) override {}
-  void setMenuItemFunction(void(*function)()) override;
-  String getName() const override;
-  void invokeMenuItem() override;
+
+  void setMenuItemFunction(std::function<void()> function);
+
+  String getName() const;
+
+  void invokeMenuItem();
 
 private:
   String m_name;
-  void(*m_function)();
+  std::function<void()> m_function;
 };
 
 #endif

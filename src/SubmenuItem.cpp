@@ -7,7 +7,7 @@ SubmenuItem::SubmenuItem(const char* name) : m_name(name) {
     m_function = nullptr;
 }
 
-void SubmenuItem::setMenuItemFunction(void(*function)()) {
+void SubmenuItem::setMenuItemFunction(std::function<void()> function) {
     m_function = function;
 }
 

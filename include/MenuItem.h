@@ -1,30 +1,46 @@
 #ifndef MENUITEM_H
 #define MENUITEM_H
 
-#include "BaseMenu.h"
+#include <Arduino.h>
+#include <vector>
+#include <functional>
 
-class MenuItem : public BaseMenu {
+class MenuItem {
 public:
   MenuItem(const char* name);
+
   ~MenuItem();
 
-  bool addMenuItem(BaseMenu* menu);
-  BaseMenu& getMenuItem(uint8_t pos);
-  String getName() const override;
-  BaseMenu** getItems();
-  uint8_t getMenuItemsSize() const;
-  uint8_t getCounter() const;
-  void incrementCounterItemSelector();
-  void decrementCounterItemSelector();
-  void setCounterItemSelector(uint8_t i);
-  void invokeMenuItem();
-  void setMenuItemFunction(void(*function)()) override {}
+  bool addMenuItem(MenuItem* menu);
+
+  // MenuItem& getMenuItem(size_t pos);
+
+  String getMenuName() const;
+
+  std::vector<MenuItem*> getMenuItems();
+
+  size_t getMenuItemSize() const;
+
+  size_t getCounter() const;
+
+  void incrementMenuItemSelector();
+
+  void decrementMenuItemSelector();
+
+  void setMenuItemSelector(size_t i);
+
+  void setMenuItemFunction(std::function<void()> function);
+
+  void invokeMenuItem() const;
 
 protected:
+  MenuItem();
+
+private:
   String m_name;
-  BaseMenu* m_baseMenu[255];
-  uint8_t m_size;
-  int8_t m_counterBaseMenuSelector;
+  std::vector<MenuItem*> m_menuItem;
+  size_t m_counterSelector;
+  std::function<void()> m_function;
 };
 
 #endif

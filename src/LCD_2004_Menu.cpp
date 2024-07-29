@@ -1,78 +1,81 @@
 #include "LCD_2004_Menu.h"
 
 LCD_2004_Menu::LCD_2004_Menu(uint8_t lcd_Addr) : LiquidCrystal_I2C(lcd_Addr, 20, 4) {
-  for (uint8_t i = 0; i < 255; ++i) {
-    m_menuItem[i] = nullptr;
-  }
-  m_size = 0;
+  m_currentMenuItem = nullptr;
   m_counterMenuItemSelector = 0;
   m_isActive = false;
 }
 
 LCD_2004_Menu::~LCD_2004_Menu() {
-  for (uint8_t i = 0; i < 255; ++i) {
+  delete m_currentMenuItem;
+  for (size_t i = 0; i < m_menuItem.size(); ++i) {
     delete m_menuItem[i];
   }
 }
 
 bool LCD_2004_Menu::addMenuItem(MenuItem* menuItem) {
-  if (m_size == 255) {
+  if (m_menuItem.size() == m_menuItem.max_size()) {
     return false;
   }
-  m_menuItem[m_size] = menuItem;
-  ++m_size;
+  m_menuItem.push_back(menuItem);
   return true;
 }
 
-MenuItem& LCD_2004_Menu::getMenuItem(uint8_t pos) {
-  return *m_menuItem[pos];
+void LCD_2004_Menu::setCurrentMenuItem(MenuItem* menuItem) {
+  m_currentMenuItem = menuItem;
 }
 
 void LCD_2004_Menu::draw() {
-  setCursor(0, 0);
-  print(m_menuItem[m_counterMenuItemSelector]->getName());
-  int i = 0;
-  if (m_menuItem[m_counterMenuItemSelector]->getCounter() > 2) {
-    i = m_menuItem[m_counterMenuItemSelector]->getCounter() - 2;
+  if (!m_currentMenuItem) {
+    return;
   }
-  for (int j = 0; i < m_menuItem[m_counterMenuItemSelector]->getMenuItemsSize(); ++i, ++j) {
+
+  setCursor(0, 0);
+  print(m_currentMenuItem->getMenuName());
+  int i = 0;
+  if (m_currentMenuItem->getCounter() > 2) {
+    i = m_currentMenuItem->getCounter() - 2;
+  }
+  for (int j = 0; i < m_currentMenuItem->getMenuItemSize(); ++i, ++j) {
     if (j > 2) {
       break;
     }
     setCursor(0, (1 + j));
-    if (m_menuItem[m_counterMenuItemSelector]->getCounter() == i) {
+    if (m_currentMenuItem->getCounter() == i) {
       print("-> ");
     }
     else {
       print("   ");
     }
-    print(m_menuItem[m_counterMenuItemSelector]->getItems()[i]->getName());
+    print(m_currentMenuItem->getMenuItems()[i]->getMenuName());
   }
 }
 
 bool LCD_2004_Menu::incrementMenuItemSelector() {
   ++m_counterMenuItemSelector;
-  if (m_counterMenuItemSelector < m_size) {
-    m_menuItem[m_counterMenuItemSelector]->setCounterItemSelector(0);
+  if (m_counterMenuItemSelector < m_menuItem.size()) {
+    m_currentMenuItem = m_menuItem[m_counterMenuItemSelector];
+    m_currentMenuItem->setMenuItemSelector(0);
     return true;
   }
   else {
     m_counterMenuItemSelector = 0;
-    m_menuItem[m_counterMenuItemSelector]->setCounterItemSelector(0);
+    m_currentMenuItem = m_menuItem[m_counterMenuItemSelector];
+    m_currentMenuItem->setMenuItemSelector(0);
     return false;
   }
 }
 
 void LCD_2004_Menu::upMenuItemSelector() {
-  m_menuItem[m_counterMenuItemSelector]->decrementCounterItemSelector();
+  m_currentMenuItem->decrementMenuItemSelector();
 }
 
 void LCD_2004_Menu::downMenuItemSelector() {
-  m_menuItem[m_counterMenuItemSelector]->incrementCounterItemSelector();
+  m_currentMenuItem->incrementMenuItemSelector();
 }
 
 void LCD_2004_Menu::invokeSelectedItem() const {
-  return m_menuItem[m_counterMenuItemSelector]->invokeMenuItem();
+  m_currentMenuItem->getMenuItems()[m_counterMenuItemSelector]->invokeMenuItem();
 }
 
 bool LCD_2004_Menu::isMenuActive() const {
@@ -80,5 +83,8 @@ bool LCD_2004_Menu::isMenuActive() const {
 }
 
 void LCD_2004_Menu::setMenuActive(bool active) {
+  if (!active && !m_menuItem.empty()) {
+      m_currentMenuItem = m_menuItem[0];
+  }
   m_isActive = active;
 }

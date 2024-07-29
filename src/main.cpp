@@ -10,7 +10,6 @@
 #include <Adafruit_AHTX0.h>
 
 #include "LCD_2004_Menu.h"
-#include "SubmenuItem.h"
 
 String ssid = "iPhone (Михаил)";
 std::string password = "q6d1nzngyzfuz";
@@ -172,42 +171,69 @@ void setup() {
   lcd.createChar(4, wifi_4);
   lcd.createChar(5, wifi_5);
 
-  MenuItem wifiSettingsMenu("WiFiSettings");
-  wifiSettingsMenu.addMenuItem(new SubmenuItem("fffffff"));
-  wifiSettingsMenu.getMenuItem(0).setMenuItemFunction(nullptr);
+  MenuItem* clockMenu = new MenuItem("-----Clock Menu-----");
+  MenuItem* setTimeMenu = new MenuItem("Set Time");
+  MenuItem* setDateMenu = new MenuItem("Set Date");
+  setTimeMenu->setMenuItemFunction(setTime);
+  setDateMenu->setMenuItemFunction(setDate);
+  // Serial.println("MenuItems created");
 
-  lcd.addMenuItem(new MenuItem("-----Clock Menu-----"));
-  lcd.getMenuItem(0).addMenuItem(new SubmenuItem("Set Time"));
-  lcd.getMenuItem(0).getMenuItem(0).setMenuItemFunction(setTime);
-  lcd.getMenuItem(0).addMenuItem(new SubmenuItem("Set Date"));
-  lcd.getMenuItem(0).getMenuItem(1).setMenuItemFunction(setDate);
+  lcd.addMenuItem(clockMenu);
+  //Serial.println("clockMenu added");
+  clockMenu->addMenuItem(setTimeMenu);
+  //Serial.println("timeMenu added to clockMenu");
+  clockMenu->addMenuItem(setDateMenu);
+  //Serial.println("dateMenu added to clockMenu");
 
-  lcd.addMenuItem(new MenuItem("-----Alarm Menu-----"));
-  lcd.getMenuItem(1).addMenuItem(new SubmenuItem("Set Alarm"));
-  lcd.getMenuItem(1).getMenuItem(0).setMenuItemFunction(nullptr);
-  lcd.getMenuItem(1).addMenuItem(new SubmenuItem("On/Off Alarm"));
-  lcd.getMenuItem(1).getMenuItem(1).setMenuItemFunction(nullptr);
+  lcd.setCurrentMenuItem(clockMenu);
+  //Serial.println("clockMenu is set by default");
 
-  lcd.addMenuItem(new MenuItem("----Display Menu----"));
-  lcd.getMenuItem(2).addMenuItem(new SubmenuItem("On/Off Backlight"));
-  lcd.getMenuItem(2).getMenuItem(0).setMenuItemFunction(nullptr);
+  MenuItem* myMenu = new MenuItem("my menu");
+  MenuItem* mySubmenu1 = new MenuItem("my Submenu 1");
+  MenuItem* mySubmenu2 = new MenuItem("my Submenu 2");
+  MenuItem* otherMenu1 = new MenuItem("other one");
+  MenuItem* otherMenu2 = new MenuItem("other two");
 
-  lcd.addMenuItem(new MenuItem("-----WiFi  Menu-----"));
-  lcd.getMenuItem(3).addMenuItem(new SubmenuItem("On/Off WiFi"));
-  lcd.getMenuItem(3).getMenuItem(0).setMenuItemFunction(nullptr);
-  lcd.getMenuItem(3).addMenuItem(new SubmenuItem("Connect to WiFi"));
-  lcd.getMenuItem(3).getMenuItem(1).setMenuItemFunction(connectionToWiFi);
-  lcd.getMenuItem(3).addMenuItem(new SubmenuItem("Disconnect"));
-  lcd.getMenuItem(3).getMenuItem(2).setMenuItemFunction(disconnectWiFi);
-  lcd.getMenuItem(3).addMenuItem(new SubmenuItem("WiFi Networks"));
-  lcd.getMenuItem(3).getMenuItem(3).setMenuItemFunction(nullptr);
-  lcd.getMenuItem(3).addMenuItem(new MenuItem("WiFi Settings"));
-  lcd.getMenuItem(3).getMenuItem(4).addMenuItem(new SubmenuItem("kkk"));
-  lcd.getMenuItem(3).getMenuItem(4).getMenuItem(0).setMenuItemFunction(nullptr);
-  lcd.getMenuItem(3).getMenuItem(4).addMenuItem(new SubmenuItem("lll"));
-  lcd.getMenuItem(3).getMenuItem(4).getMenuItem(1).setMenuItemFunction(nullptr);
-  lcd.getMenuItem(3).addMenuItem(new SubmenuItem("About Network"));
-  lcd.getMenuItem(3).getMenuItem(5).setMenuItemFunction(nullptr);
+  lcd.addMenuItem(myMenu);
+  myMenu->addMenuItem(mySubmenu1);
+  myMenu->addMenuItem(mySubmenu2);
+  mySubmenu1->addMenuItem(otherMenu1);
+  mySubmenu1->addMenuItem(otherMenu2);
+  mySubmenu1->setMenuItemFunction([&](){ Serial.print("click"); lcd.setCurrentMenuItem(mySubmenu1); lcd.draw(); });
+
+  // lcd.addMenuItem(new MenuItem("-----Clock Menu-----"));
+  // lcd.getMenuItem(0).addMenuItem(new MenuItem("Set Time"));
+  // lcd.getMenuItem(0).getMenuItem(0).setMenuItemFunction(setTime);
+  // lcd.getMenuItem(0).addMenuItem(new MenuItem("Set Date"));
+  // lcd.getMenuItem(0).getMenuItem(1).setMenuItemFunction(setDate);
+
+  // lcd.addMenuItem(new MenuItem("-----Alarm Menu-----"));
+  // lcd.getMenuItem(1).addMenuItem(new MenuItem("Set Alarm"));
+  // lcd.getMenuItem(1).getMenuItem(0).setMenuItemFunction(nullptr);
+  // lcd.getMenuItem(1).addMenuItem(new MenuItem("On/Off Alarm"));
+  // lcd.getMenuItem(1).getMenuItem(1).setMenuItemFunction(nullptr);
+
+  // lcd.addMenuItem(new MenuItem("----Display Menu----"));
+  // lcd.getMenuItem(2).addMenuItem(new MenuItem("On/Off Backlight"));
+  // lcd.getMenuItem(2).getMenuItem(0).setMenuItemFunction(nullptr);
+
+  // lcd.addMenuItem(new MenuItem("-----WiFi  Menu-----"));
+  // lcd.getMenuItem(3).addMenuItem(new MenuItem("On/Off WiFi"));
+  // lcd.getMenuItem(3).getMenuItem(0).setMenuItemFunction(nullptr);
+  // lcd.getMenuItem(3).addMenuItem(new MenuItem("Connect to WiFi"));
+  // lcd.getMenuItem(3).getMenuItem(1).setMenuItemFunction(connectionToWiFi);
+  // lcd.getMenuItem(3).addMenuItem(new MenuItem("Disconnect"));
+  // lcd.getMenuItem(3).getMenuItem(2).setMenuItemFunction(disconnectWiFi);
+  // lcd.getMenuItem(3).addMenuItem(new MenuItem("WiFi Networks"));
+  // lcd.getMenuItem(3).getMenuItem(3).setMenuItemFunction(nullptr);
+  // lcd.getMenuItem(3).addMenuItem(new MenuItem("WiFi Settings"));
+  // lcd.getMenuItem(3).getMenuItem(4).setMenuItemFunction([&](){ lcd.setCurrentMenuItem(lcd.getMenuItem(3).getMenuItem(4)); });
+  // lcd.getMenuItem(3).getMenuItem(4).addMenuItem(new MenuItem("kkk"));
+  // lcd.getMenuItem(3).getMenuItem(4).getMenuItem(0).setMenuItemFunction(nullptr);
+  // lcd.getMenuItem(3).getMenuItem(4).addMenuItem(new MenuItem("lll"));
+  // lcd.getMenuItem(3).getMenuItem(4).getMenuItem(1).setMenuItemFunction(nullptr);
+  // lcd.getMenuItem(3).addMenuItem(new MenuItem("About Network"));
+  // lcd.getMenuItem(3).getMenuItem(5).setMenuItemFunction(nullptr);
 
   connectionToWiFi();
 }
@@ -237,7 +263,7 @@ void loop() {
     else if (button_click == button_ok) {
       lcd.invokeSelectedItem();
       lcd.clear();
-      lcd.setMenuActive(false);
+      //lcd.setMenuActive(false);
     }
     else if (button_click == button_hash) {
       lcd.setMenuActive(false);
