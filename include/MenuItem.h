@@ -1,7 +1,12 @@
 #ifndef MENUITEM_H
 #define MENUITEM_H
 
+#ifdef ARDUINO
 #include <Arduino.h>
+#else
+#include <cstddef>
+#endif
+#include <string>
 #include <vector>
 #include <functional>
 
@@ -9,38 +14,34 @@ class MenuItem {
 public:
   MenuItem(const char* name);
 
-  ~MenuItem();
+  virtual ~MenuItem();
 
   bool addMenuItem(MenuItem* menu);
 
-  // MenuItem& getMenuItem(size_t pos);
+  MenuItem* getMenuItem(size_t pos) const;
 
-  String getMenuName() const;
+  std::string getMenuName() const;
 
-  std::vector<MenuItem*> getMenuItems();
-
-  size_t getMenuItemSize() const;
+  size_t getMenuItemCount() const;
 
   size_t getCounter() const;
 
-  void incrementMenuItemSelector();
+  void incrementCounter();
 
-  void decrementMenuItemSelector();
+  void decrementCounter();
 
-  void setMenuItemSelector(size_t i);
+  bool setCounter(size_t i);
 
-  void setMenuItemFunction(std::function<void()> function);
+  void setFunction(std::function<void()> function);
 
-  void invokeMenuItem() const;
-
-protected:
-  MenuItem();
+  void invoke() const;
 
 private:
-  String m_name;
-  std::vector<MenuItem*> m_menuItem;
-  size_t m_counterSelector;
+  inline static uint8_t m_maxNameLength = 17;
+  std::string m_name;
+  size_t m_counter;
   std::function<void()> m_function;
+  std::vector<MenuItem*> m_menuItem;
 };
 
 #endif

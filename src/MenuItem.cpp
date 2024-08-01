@@ -1,8 +1,11 @@
 #include "MenuItem.h"
 
-MenuItem::MenuItem(const char* name) : m_name(name), m_function(nullptr) {
-  m_counterSelector = 0;
-  while (m_name.length() < 17) {
+MenuItem::MenuItem(const char* name)
+: m_name(name), m_counter(0), m_function(nullptr) {
+  if (m_name.length() > m_maxNameLength) {
+    m_name = m_name.substr(0, m_maxNameLength);
+  }
+  while (m_name.length() < m_maxNameLength) {
     m_name += ' ';
   }
 }
@@ -21,61 +24,55 @@ bool MenuItem::addMenuItem(MenuItem* menuItem) {
   return true;
 }
 
-// MenuItem& MenuItem::getMenuItem(size_t pos) {
-//   return *m_menuItem[pos];
-// }
+MenuItem* MenuItem::getMenuItem(size_t pos) const {
+  return m_menuItem[pos];
+}
 
-String MenuItem::getMenuName() const {
+std::string MenuItem::getMenuName() const {
   return m_name;
 }
 
-std::vector<MenuItem*> MenuItem::getMenuItems() {
-  return m_menuItem;
-}
-
-size_t MenuItem::getMenuItemSize() const {
+size_t MenuItem::getMenuItemCount() const {
   return m_menuItem.size();
 }
 
 size_t MenuItem::getCounter() const {
-  return m_counterSelector;
+  return m_counter;
 }
 
-void MenuItem::incrementMenuItemSelector() {
-  if (m_counterSelector < m_menuItem.size()) {
-    m_counterSelector++;
-    if (m_counterSelector == m_menuItem.size()) {
-      m_counterSelector = 0;
+void MenuItem::incrementCounter() {
+  if (m_counter < m_menuItem.size()) {
+    m_counter++;
+    if (m_counter == m_menuItem.size()) {
+      m_counter = 0;
     }
   }
 }
 
-void MenuItem::decrementMenuItemSelector() {
-  if (m_counterSelector > 0) {
-    m_counterSelector--;
+void MenuItem::decrementCounter() {
+  if (m_counter > 0) {
+    m_counter--;
   }
   else {
-    m_counterSelector = m_menuItem.size() - 1;
+    m_counter = m_menuItem.size() - 1;
   }
 }
 
-void MenuItem::setMenuItemSelector(size_t i) {
+bool MenuItem::setCounter(size_t i) {
   if (i >= m_menuItem.size()) {
-    m_counterSelector = m_menuItem.size() - 1;
+    m_counter = m_menuItem.size() - 1;
+    return false;
   }
-  else {
-    m_counterSelector = i;
-  }
+  m_counter = i;
+  return true;
 }
 
-void MenuItem::setMenuItemFunction(std::function<void()> function) {
+void MenuItem::setFunction(std::function<void()> function) {
     m_function = function;
 }
 
-void MenuItem::invokeMenuItem() const {
+void MenuItem::invoke() const {
   if (m_function) {
     m_function();
   }
 }
-
-MenuItem::MenuItem() : MenuItem("LCD Menu") {}

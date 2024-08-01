@@ -1,6 +1,6 @@
 #include <Arduino.h>
+#include <string>
 #include <Wire.h>
-
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
@@ -11,10 +11,19 @@
 
 #include "LCD_2004_Menu.h"
 
-String ssid = "iPhone (Михаил)";
-std::string password = "q6d1nzngyzfuz";
-const String endpoint = "http://worldtimeapi.org/api/timezone/Asia/Omsk";
-uint8_t timeoutWiFi = 10;
+#define BMP_SCK       18
+#define BMP_MISO      19
+#define BMP_MOSI      23
+#define BMP_CS        5
+#define LCD_ADDRESS   0x27
+#define IRRECEIVEPIN  0
+
+enum StatisticsAll {
+  statisticsOff,
+  statisticsTemperature,
+  statisticsHumidity,
+  statisticsPressure
+};
 
 uint8_t wifi_1[8] = { B00000,
                       B00000,
@@ -56,13 +65,6 @@ uint8_t wifi_5[8] = { B00000,
                       B11111,
                       B11111 };
 
-#define BMP_SCK       18
-#define BMP_MISO      19
-#define BMP_MOSI      23
-#define BMP_CS        5
-#define LCD_ADDRESS   0x27
-#define IRRECEIVEPIN  0
-
 const IRRawDataType button_asterisk = 0xBD42FF00;
 const IRRawDataType button_hash     = 0xB54AFF00;
 const IRRawDataType button_ok       = 0xBF40FF00;
@@ -77,12 +79,12 @@ float gTemperature  = 0.0f;
 float gHumidity     = 0.0f;
 float gPressure     = 0.0f;
 
-enum StatisticsAll {
-  statisticsOff,
-  statisticsTemperature,
-  statisticsHumidity,
-  statisticsPressure
-};
+std::string ssid = "iPhone (Михаил)";
+std::string password = "q6d1nzngyzfuz";
+std::string endpoint = "http://worldtimeapi.org/api/timezone/Asia/Omsk";
+
+uint8_t timeoutWiFi = 10;
+
 StatisticsAll statisticsAll = StatisticsAll::statisticsOff;
 
 LCD_2004_Menu lcd(LCD_ADDRESS);
@@ -121,7 +123,6 @@ float pressureMaximum = -2000.0f;
 void connectionToWiFi();
 void disconnectWiFi();
 void handleReceivedMessage(String message);
-
 IRRawDataType getIrReceiverCommand();
 void printLCDMessage(const char* str1, const char* str2 = nullptr, const char* str3 = nullptr, const char* str4 = nullptr);
 void printFullDate(uint8_t col, uint8_t row, uint8_t day, uint8_t month, uint16_t year);
@@ -171,69 +172,58 @@ void setup() {
   lcd.createChar(4, wifi_4);
   lcd.createChar(5, wifi_5);
 
-  MenuItem* clockMenu = new MenuItem("-----Clock Menu-----");
-  MenuItem* setTimeMenu = new MenuItem("Set Time");
-  MenuItem* setDateMenu = new MenuItem("Set Date");
-  setTimeMenu->setMenuItemFunction(setTime);
-  setDateMenu->setMenuItemFunction(setDate);
-  // Serial.println("MenuItems created");
+  MenuItem* clockMenu = new MenuItem("Clock Menu");
+  MenuItem* setTimeSubmenu = new MenuItem("Set Time");
+  MenuItem* setDateSubmenu = new MenuItem("Set Date");
+  clockMenu->addMenuItem(setTimeSubmenu);
+  clockMenu->addMenuItem(setDateSubmenu);
+  setTimeSubmenu->setFunction(setTime);
+  setDateSubmenu->setFunction(setDate);
+  
+  MenuItem* alarmMenu = new MenuItem("Alarm Menu");
+  MenuItem* alarmsSubmenu = new MenuItem("Alarms");
+  MenuItem* addAlarmSubmenu = new MenuItem("Add Alarm");
+  alarmMenu->addMenuItem(alarmsSubmenu);
+  alarmMenu->addMenuItem(addAlarmSubmenu);
+
+  MenuItem* displayMenu = new MenuItem("Display Menu");
+  MenuItem* onOffBacklightSubmenu = new MenuItem("On/Off Backlight");
+  displayMenu->addMenuItem(onOffBacklightSubmenu);
+
+  MenuItem* wifiMenu = new MenuItem("WiFi Menu");
+  MenuItem* connectWifiSubmenu = new MenuItem("Connect");
+  MenuItem* disconnectWifiSubmenu = new MenuItem("Disconnect");
+  MenuItem* aboutWifiSubmenu = new MenuItem("About Network");
+  MenuItem* networksWifiSubmenu = new MenuItem("Networks");
+  MenuItem* settingsWifiSubmenu = new MenuItem("WiFi Settings");
+  MenuItem* timeoutWifiSubmenu = new MenuItem("Timeout");
+  MenuItem* autoconnectStartupWifiSubmenu = new MenuItem("Autoconnect");
+  MenuItem* timeUpdateRateWifiSubmenu = new MenuItem("Time update rate");
+  MenuItem* setTimeWifiSubmenu = new MenuItem("Set time");
+  MenuItem* setRateWifiSubmenu = new MenuItem("Set rate");
+  MenuItem* rateEveryHourWifiSubmenu = new MenuItem("Every hour");
+  MenuItem* rateEveryDayWifiSubmenu = new MenuItem("Every day");
+  MenuItem* rateEveryWeekWifiSubmenu = new MenuItem("Every week");
+  MenuItem* rateEveryMonthWifiSubmenu = new MenuItem("Every month");
+  wifiMenu->addMenuItem(connectWifiSubmenu);
+  wifiMenu->addMenuItem(disconnectWifiSubmenu);
+  wifiMenu->addMenuItem(aboutWifiSubmenu);
+  wifiMenu->addMenuItem(networksWifiSubmenu);
+  wifiMenu->addMenuItem(settingsWifiSubmenu);
+  settingsWifiSubmenu->addMenuItem(timeoutWifiSubmenu);
+  settingsWifiSubmenu->addMenuItem(autoconnectStartupWifiSubmenu);
+  settingsWifiSubmenu->addMenuItem(timeUpdateRateWifiSubmenu);
+  timeUpdateRateWifiSubmenu->addMenuItem(setTimeWifiSubmenu);
+  timeUpdateRateWifiSubmenu->addMenuItem(setRateWifiSubmenu);
+  setRateWifiSubmenu->addMenuItem(rateEveryHourWifiSubmenu);
+  setRateWifiSubmenu->addMenuItem(rateEveryDayWifiSubmenu);
+  setRateWifiSubmenu->addMenuItem(rateEveryWeekWifiSubmenu);
+  setRateWifiSubmenu->addMenuItem(rateEveryMonthWifiSubmenu);
 
   lcd.addMenuItem(clockMenu);
-  //Serial.println("clockMenu added");
-  clockMenu->addMenuItem(setTimeMenu);
-  //Serial.println("timeMenu added to clockMenu");
-  clockMenu->addMenuItem(setDateMenu);
-  //Serial.println("dateMenu added to clockMenu");
-
-  lcd.setCurrentMenuItem(clockMenu);
-  //Serial.println("clockMenu is set by default");
-
-  MenuItem* myMenu = new MenuItem("my menu");
-  MenuItem* mySubmenu1 = new MenuItem("my Submenu 1");
-  MenuItem* mySubmenu2 = new MenuItem("my Submenu 2");
-  MenuItem* otherMenu1 = new MenuItem("other one");
-  MenuItem* otherMenu2 = new MenuItem("other two");
-
-  lcd.addMenuItem(myMenu);
-  myMenu->addMenuItem(mySubmenu1);
-  myMenu->addMenuItem(mySubmenu2);
-  mySubmenu1->addMenuItem(otherMenu1);
-  mySubmenu1->addMenuItem(otherMenu2);
-  mySubmenu1->setMenuItemFunction([&](){ Serial.print("click"); lcd.setCurrentMenuItem(mySubmenu1); lcd.draw(); });
-
-  // lcd.addMenuItem(new MenuItem("-----Clock Menu-----"));
-  // lcd.getMenuItem(0).addMenuItem(new MenuItem("Set Time"));
-  // lcd.getMenuItem(0).getMenuItem(0).setMenuItemFunction(setTime);
-  // lcd.getMenuItem(0).addMenuItem(new MenuItem("Set Date"));
-  // lcd.getMenuItem(0).getMenuItem(1).setMenuItemFunction(setDate);
-
-  // lcd.addMenuItem(new MenuItem("-----Alarm Menu-----"));
-  // lcd.getMenuItem(1).addMenuItem(new MenuItem("Set Alarm"));
-  // lcd.getMenuItem(1).getMenuItem(0).setMenuItemFunction(nullptr);
-  // lcd.getMenuItem(1).addMenuItem(new MenuItem("On/Off Alarm"));
-  // lcd.getMenuItem(1).getMenuItem(1).setMenuItemFunction(nullptr);
-
-  // lcd.addMenuItem(new MenuItem("----Display Menu----"));
-  // lcd.getMenuItem(2).addMenuItem(new MenuItem("On/Off Backlight"));
-  // lcd.getMenuItem(2).getMenuItem(0).setMenuItemFunction(nullptr);
-
-  // lcd.addMenuItem(new MenuItem("-----WiFi  Menu-----"));
-  // lcd.getMenuItem(3).addMenuItem(new MenuItem("On/Off WiFi"));
-  // lcd.getMenuItem(3).getMenuItem(0).setMenuItemFunction(nullptr);
-  // lcd.getMenuItem(3).addMenuItem(new MenuItem("Connect to WiFi"));
-  // lcd.getMenuItem(3).getMenuItem(1).setMenuItemFunction(connectionToWiFi);
-  // lcd.getMenuItem(3).addMenuItem(new MenuItem("Disconnect"));
-  // lcd.getMenuItem(3).getMenuItem(2).setMenuItemFunction(disconnectWiFi);
-  // lcd.getMenuItem(3).addMenuItem(new MenuItem("WiFi Networks"));
-  // lcd.getMenuItem(3).getMenuItem(3).setMenuItemFunction(nullptr);
-  // lcd.getMenuItem(3).addMenuItem(new MenuItem("WiFi Settings"));
-  // lcd.getMenuItem(3).getMenuItem(4).setMenuItemFunction([&](){ lcd.setCurrentMenuItem(lcd.getMenuItem(3).getMenuItem(4)); });
-  // lcd.getMenuItem(3).getMenuItem(4).addMenuItem(new MenuItem("kkk"));
-  // lcd.getMenuItem(3).getMenuItem(4).getMenuItem(0).setMenuItemFunction(nullptr);
-  // lcd.getMenuItem(3).getMenuItem(4).addMenuItem(new MenuItem("lll"));
-  // lcd.getMenuItem(3).getMenuItem(4).getMenuItem(1).setMenuItemFunction(nullptr);
-  // lcd.getMenuItem(3).addMenuItem(new MenuItem("About Network"));
-  // lcd.getMenuItem(3).getMenuItem(5).setMenuItemFunction(nullptr);
+  lcd.addMenuItem(alarmMenu);
+  lcd.addMenuItem(displayMenu);
+  lcd.addMenuItem(wifiMenu);
 
   connectionToWiFi();
 }
@@ -242,42 +232,29 @@ void loop() {
   readSensors(gTemperature, gHumidity, gPressure);
 
   IRRawDataType button_click = getIrReceiverCommand();
-  if (lcd.isMenuActive()) {
+  if (lcd.isActive()) {
     if (button_click == button_asterisk) {
-      lcd.clear();
-      if (lcd.incrementMenuItemSelector()) {
-        lcd.draw();
-      }
-      else {
-        lcd.setMenuActive(false);
-      }
+      lcd.nextMenuItem();
     }
     else if (button_click == button_up) {
-      lcd.upMenuItemSelector();
-      lcd.draw();
+      lcd.upCounter();
     }
     else if (button_click == button_down) {
-      lcd.downMenuItemSelector();
-      lcd.draw();
+      lcd.downCounter();
     }
     else if (button_click == button_ok) {
-      lcd.invokeSelectedItem();
-      lcd.clear();
-      //lcd.setMenuActive(false);
+      lcd.invokeMenuItem();
     }
     else if (button_click == button_hash) {
-      lcd.setMenuActive(false);
-      lcd.clear();
+      lcd.setActive(false);
     }
   }
   else {
     home();
     if (button_click == button_asterisk) {
-      lcd.clear();
-      lcd.setMenuActive(true);
-      lcd.draw();
+      lcd.setActive(true);
     }
-    else if (button_click == button_hash) {
+    else if (button_click == button_ok) {
       lcd.clear();
       if (statisticsAll == StatisticsAll::statisticsOff) {
         statisticsAll = StatisticsAll::statisticsTemperature;
@@ -322,7 +299,7 @@ void connectionToWiFi() {
 
   if (connected) {
     HTTPClient http;
-    http.begin(endpoint);
+    http.begin(String(endpoint.c_str()));
     int httpCode = http.GET();
     if (httpCode == 200) {
       String payload = http.getString();
