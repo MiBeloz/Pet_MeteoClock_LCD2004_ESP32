@@ -6,7 +6,6 @@
 #else
 #include <cstddef>
 #endif
-#include <string>
 #include <vector>
 #include <functional>
 

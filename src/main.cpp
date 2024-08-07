@@ -1,20 +1,14 @@
 #include <Arduino.h>
-#include <string>
 #include <Wire.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
-#include <IRremote.hpp>
 #include <RTClib.h>
-#include <Adafruit_BMP280.h>
-#include <Adafruit_AHTX0.h>
 
 #include "LCD_2004_Menu.h"
+#include "MeteoSensors.h"
+#include "RemoteController.hpp"
 
-#define BMP_SCK       18
-#define BMP_MISO      19
-#define BMP_MOSI      23
-#define BMP_CS        5
 #define LCD_ADDRESS   0x27
 #define IRRECEIVEPIN  0
 
@@ -25,59 +19,9 @@ enum StatisticsAll {
   statisticsPressure
 };
 
-uint8_t wifi_1[8] = { B00000,
-                      B00000,
-                      B00000,
-                      B00000,
-                      B00000,
-                      B10000,
-                      B10000  };
-
-uint8_t wifi_2[8] = { B00000,
-                      B00000,
-                      B00000,
-                      B00000,
-                      B01000,
-                      B11000,
-                      B11000 };
-
-uint8_t wifi_3[8] = { B00000,
-                      B00000,
-                      B00000,
-                      B00100,
-                      B01100,
-                      B11100,
-                      B11100 };
-
-uint8_t wifi_4[8] = { B00000,
-                      B00000,
-                      B00010,
-                      B00110,
-                      B01110,
-                      B11110,
-                      B11110 };
-
-uint8_t wifi_5[8] = { B00000,
-                      B00001,
-                      B00011,
-                      B00111,
-                      B01111,
-                      B11111,
-                      B11111 };
-
-const IRRawDataType button_asterisk = 0xBD42FF00;
-const IRRawDataType button_hash     = 0xB54AFF00;
-const IRRawDataType button_ok       = 0xBF40FF00;
-const IRRawDataType button_up       = 0xB946FF00;
-const IRRawDataType button_down     = 0xEA15FF00;
-
 uint16_t showMessageTime = 3000;
 
 const char* dayOfTheWeekStr[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
-
-float gTemperature  = 0.0f;
-float gHumidity     = 0.0f;
-float gPressure     = 0.0f;
 
 std::string ssid = "iPhone (Михаил)";
 std::string password = "q6d1nzngyzfuz";
@@ -88,9 +32,8 @@ uint8_t timeoutWiFi = 10;
 StatisticsAll statisticsAll = StatisticsAll::statisticsOff;
 
 LCD_2004_Menu lcd(LCD_ADDRESS);
+MeteoSensors meteoSensors;
 RTC_DS3231 rtc;
-Adafruit_BMP280 bmp280(BMP_CS, BMP_MOSI, BMP_MISO, BMP_SCK);
-Adafruit_AHTX0 aht10;
 
 // int addressDefaultAllValues = 0;
 // int addressDateTemperatureMinimum = 10;
@@ -123,13 +66,11 @@ float pressureMaximum = -2000.0f;
 void connectionToWiFi();
 void disconnectWiFi();
 void handleReceivedMessage(String message);
-IRRawDataType getIrReceiverCommand();
 void printLCDMessage(const char* str1, const char* str2 = nullptr, const char* str3 = nullptr, const char* str4 = nullptr);
 void printFullDate(uint8_t col, uint8_t row, uint8_t day, uint8_t month, uint16_t year);
 void printFullTime(uint8_t col, uint8_t row, uint8_t hour, uint8_t minute, uint8_t second);
 void printDayOfTheWeek(uint8_t col, uint8_t row, uint8_t day);
 void printSensorValue(uint8_t col, uint8_t row, float value, const char* measure = nullptr, const char* measure_2 = nullptr);
-void readSensors(float& temperature, float& humidity, float& pressure);
 void updateEEPROM();
 void home();
 void setTime();
@@ -143,34 +84,14 @@ void setup() {
   lcd.init();
   lcd.backlight();
 
+  meteoSensors.begin();
+
   rtc.begin();
   if (rtc.now() < DateTime(2024, 1, 1)) {
     rtc.adjust(DateTime(2024, 1, 1));
   }
 
-  IrReceiver.begin(IRRECEIVEPIN, ENABLE_LED_FEEDBACK, DISABLE_LED_FEEDBACK);
-
-  if (!bmp280.begin()) {
-    Serial.println("Could not find a valid BMP280 sensor, check wiring!");
-    while (true);
-  }
-  bmp280.setSampling(
-    Adafruit_BMP280::MODE_NORMAL,                           // Режим работы
-    Adafruit_BMP280::SAMPLING_X16,                          // Точность изм. температуры
-    Adafruit_BMP280::SAMPLING_X16,                          // Точность изм. давления
-    Adafruit_BMP280::FILTER_X16,                            // Уровень фильтрации
-    Adafruit_BMP280::STANDBY_MS_2000);                      // Период просыпания, мСек
-
-  if (!aht10.begin()) {
-    Serial.println("Could not find a valid AHT10 sensor, check wiring!");   // Отправка сообщения
-    while (true);
-  }
-
-  lcd.createChar(1, wifi_1);
-  lcd.createChar(2, wifi_2);
-  lcd.createChar(3, wifi_3);
-  lcd.createChar(4, wifi_4);
-  lcd.createChar(5, wifi_5);
+  IrReceiver.begin(IRRECEIVEPIN);
 
   MenuItem* clockMenu = new MenuItem("Clock Menu");
   MenuItem* setTimeSubmenu = new MenuItem("Set Time");
@@ -229,7 +150,11 @@ void setup() {
 }
 
 void loop() {
-  readSensors(gTemperature, gHumidity, gPressure);
+  static uint64_t readSensorTimer = 0;
+  if (millis() > readSensorTimer + 2000) {
+    readSensorTimer = millis();
+    meteoSensors.read();
+  }
 
   IRRawDataType button_click = getIrReceiverCommand();
   if (lcd.isActive()) {
@@ -339,19 +264,6 @@ void handleReceivedMessage(String message) {
   lcd.clear();
 }
 
-IRRawDataType getIrReceiverCommand() {
-  IRRawDataType rawCommand = 0;
-  if (IrReceiver.decode()) {
-    if (IrReceiver.decodedIRData.protocol != UNKNOWN) {
-      if (IrReceiver.decodedIRData.command != 0) {
-        rawCommand = IrReceiver.decodedIRData.decodedRawData;
-      }
-      IrReceiver.resume();
-    }
-  }
-  return rawCommand;
-}
-
 void printLCDMessage(const char* str1, const char* str2, const char* str3, const char* str4) {
   lcd.clear();
   lcd.print(str1);
@@ -406,9 +318,9 @@ void printSensorValue(uint8_t col, uint8_t row, float value, const char* measure
 }
 
 void updateEEPROM() {
-  if (temperatureMinimum > gTemperature) {
+  if (temperatureMinimum > meteoSensors.getTemperature()) {
     DateTime now_temperature_minimum(rtc.now());
-    temperatureMinimum = gTemperature;
+    temperatureMinimum = meteoSensors.getTemperature();
     dateTemperatureMinimum = now_temperature_minimum.unixtime();
     // EEPROM.put(addressDateTemperatureMinimum, dateTemperatureMinimum);
     // EEPROM.put(addressTemperatureMinimum, temperatureMinimum);
@@ -416,9 +328,9 @@ void updateEEPROM() {
       // EEPROM.put(addressDefaultAllValues, true);
     }
   }
-  if (temperatureMaximum < gTemperature) {
+  if (temperatureMaximum < meteoSensors.getTemperature()) {
     DateTime now_temperature_maximum(rtc.now());
-    temperatureMaximum = gTemperature;
+    temperatureMaximum = meteoSensors.getTemperature();
     dateTemperatureMaximum = now_temperature_maximum.unixtime();
     // EEPROM.put(addressDateTemperatureMaximum, dateTemperatureMaximum);
     // EEPROM.put(addressTemperatureMaximum, temperatureMaximum);
@@ -426,9 +338,9 @@ void updateEEPROM() {
       // EEPROM.put(addressDefaultAllValues, true);
     }
   }
-  if (humidityMinimum > gHumidity) {
+  if (humidityMinimum > meteoSensors.getHumidity()) {
     DateTime now_humidity_minimum(rtc.now());
-    humidityMinimum = gHumidity;
+    humidityMinimum = meteoSensors.getHumidity();
     dateHumidityMinimum = now_humidity_minimum.unixtime();
     // EEPROM.put(addressDateHumidityMinimum, dateHumidityMinimum);
     // EEPROM.put(addressHumidityMinimum, humidityMinimum);
@@ -436,9 +348,9 @@ void updateEEPROM() {
       // EEPROM.put(addressDefaultAllValues, true);
     }
   }
-  if (humidityMaximum < gHumidity) {
+  if (humidityMaximum < meteoSensors.getHumidity()) {
     DateTime now_humidity_maximum(rtc.now());
-    humidityMaximum = gHumidity;
+    humidityMaximum = meteoSensors.getHumidity();
     dateHumidityMaximum = now_humidity_maximum.unixtime();
     // EEPROM.put(addressDateHumidityMaximum, dateHumidityMaximum);
     // EEPROM.put(addressHumidityMaximum, humidityMaximum);
@@ -446,9 +358,9 @@ void updateEEPROM() {
       // EEPROM.put(addressDefaultAllValues, true);
     }
   }
-  if (pressureMinimum > gPressure) {
+  if (pressureMinimum > meteoSensors.getPressure()) {
     DateTime now_pressure_minimum(rtc.now());
-    pressureMinimum = gPressure;
+    pressureMinimum = meteoSensors.getPressure();
     datePressureMinimum = now_pressure_minimum.unixtime();
     // EEPROM.put(addressDatePressureMinimum, datePressureMinimum);
     // EEPROM.put(addressPressureMinimum, pressureMinimum);
@@ -456,28 +368,15 @@ void updateEEPROM() {
       // EEPROM.put(addressDefaultAllValues, true);
     }
   }
-  if (pressureMaximum < gPressure) {
+  if (pressureMaximum < meteoSensors.getPressure()) {
     DateTime now_pressure_maximum(rtc.now());
-    pressureMaximum = gPressure;
+    pressureMaximum = meteoSensors.getPressure();
     datePressureMaximum = now_pressure_maximum.unixtime();
     // EEPROM.put(addressDatePressureMaximum, datePressureMaximum);
     // EEPROM.put(addressPressureMaximum, pressureMaximum);
     if (!defaultAllValues) {
       // EEPROM.put(addressDefaultAllValues, true);
     }
-  }
-}
-
-void readSensors(float& temperature, float& humidity, float& pressure) {
-  static uint64_t readSensorTimer = 0;
-  if (millis() > readSensorTimer + 2000) {
-    readSensorTimer = millis();
-    sensors_event_t temperatureSensor, humiditySensor;
-    aht10.getEvent(&humiditySensor, &temperatureSensor);
-    temperature = temperatureSensor.temperature;
-    humidity = humiditySensor.relative_humidity;
-    pressure = bmp280.readPressure() * 0.00750063755419211;
-    updateEEPROM();
   }
 }
 
@@ -533,15 +432,15 @@ void home() {
     printFullTime(0, 0, now.hour(), now.minute(), now.second());
     printDayOfTheWeek(10, 0, now.dayOfTheWeek());
     printFullDate(0, 1, now.day(), now.month(), now.year());
-    printSensorValue(0, 3, gTemperature, "\xDF", "C ");
-    printSensorValue(10, 2, gHumidity, "% ");
-    printSensorValue(10, 3, gPressure, "mmHg ");
+    printSensorValue(0, 3, meteoSensors.getTemperature(), "\xDF", "C ");
+    printSensorValue(10, 2, meteoSensors.getHumidity(), "% ");
+    printSensorValue(10, 3, meteoSensors.getPressure(), "mmHg ");
 
     static uint64_t statusWiFiTimer = 0;
     int rssi = WiFi.RSSI();
     
 
-    Serial.printf("RSSI: %d\n", rssi);
+    //Serial.printf("RSSI: %d\n", rssi);
     lcd.setCursor(19, 0);
     if ((rssi <= 0 && rssi > -25) || rssi < -90) {
       lcd.print('X');
@@ -562,7 +461,7 @@ void home() {
       lcd.print(static_cast<char>(1));
     }
     else {
-      lcd.print('X');
+      lcd.print(static_cast<char>(0));
     }
   }
 }

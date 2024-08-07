@@ -43,21 +43,19 @@ private:
 	MenuItem* m_currentMenuItem;
 	std::vector<MenuItem*> m_menuItem;
 	std::stack<std::pair<MenuItem*, size_t>> m_prevMenuItem;
-
-	// inline static std::vector<unsigned char*> m_wifiStatus = {
-	// 	{ B10001, B10001, B01010, B00100, B01010, B10001, B10001 },
-	// 	{ B00000, B00000, B00000, B00000, B00000, B10000, B10000 },
-	// 	{ B00000, B00000, B00000, B00000, B01000, B11000, B11000 },
-	// 	{ B00000, B00000, B00000, B00100, B01100, B11100, B11100 },
-	// 	{ B00000, B00000, B00010, B00110, B01110, B11110, B11110 },
-	// 	{ B00000, B00001, B00011, B00111, B01111, B11111, B11111 }
-	// };
+	inline static uint8_t m_wifiStatus[6][8] {
+		{ B10001, B10001, B01010, B00100, B01010, B10001, B10001 },
+		{ B00000, B00000, B00000, B00000, B00000, B10000, B10000 },
+		{ B00000, B00000, B00000, B00000, B01000, B11000, B11000 },
+		{ B00000, B00000, B00000, B00100, B01100, B11100, B11100 },
+		{ B00000, B00000, B00010, B00110, B01110, B11110, B11110 },
+		{ B00000, B00001, B00011, B00111, B01111, B11111, B11111 }
+	};
 };
 
-
-// class fff {
+// class f {
 // 	template<typename T>
-// 	fff(T) = delete;
+// 	f(T) = delete;
 // };
 
 #endif

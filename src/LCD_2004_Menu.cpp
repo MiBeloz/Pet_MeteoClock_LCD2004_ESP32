@@ -2,7 +2,9 @@
 
 LCD_2004_Menu::LCD_2004_Menu(uint8_t lcd_Addr)
 : LiquidCrystal_I2C(lcd_Addr, 20, 4), m_counter(0), m_isActive(false), m_currentMenuItem(nullptr) {
-  
+  for (uint8_t i = 0; i < sizeof(m_wifiStatus) / sizeof(m_wifiStatus[0]); ++i) {
+    createChar(1, m_wifiStatus[i]);
+  }
 }
 
 LCD_2004_Menu::~LCD_2004_Menu() {
