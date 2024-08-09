@@ -4,13 +4,13 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <RTClib.h>
+#include <EEPROM.h>
 
 #include "LCD_2004_Menu.h"
 #include "MeteoSensors.h"
 #include "RemoteController.hpp"
 
 #define LCD_ADDRESS   0x27
-#define IRRECEIVEPIN  0
 
 enum StatisticsAll {
   statisticsOff,
@@ -19,35 +19,30 @@ enum StatisticsAll {
   statisticsPressure
 };
 
-uint16_t showMessageTime = 3000;
-
-const char* dayOfTheWeekStr[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+StatisticsAll statisticsAll = StatisticsAll::statisticsOff;
 
 std::string ssid = "iPhone (Михаил)";
 std::string password = "q6d1nzngyzfuz";
 std::string endpoint = "http://worldtimeapi.org/api/timezone/Asia/Omsk";
-
 uint8_t timeoutWiFi = 10;
-
-StatisticsAll statisticsAll = StatisticsAll::statisticsOff;
 
 LCD_2004_Menu lcd(LCD_ADDRESS);
 MeteoSensors meteoSensors;
 RTC_DS3231 rtc;
 
-// int addressDefaultAllValues = 0;
-// int addressDateTemperatureMinimum = 10;
-// int addressDateTemperatureMaximum = 14;
-// int addressDateHumidityMinimum = 18;
-// int addressDateHumidityMaximum = 22;
-// int addressDatePressureMinimum = 26;
-// int addressDatePressureMaximum = 30;
-// int addressTemperatureMinimum = 34;
-// int addressTemperatureMaximum = 38;
-// int addressHumidityMinimum = 42;
-// int addressHumidityMaximum = 46;
-// int addressPressureMinimum = 50;
-// int addressPressureMaximum = 54;
+int addressDefaultAllValues = 0;
+int addressDateTemperatureMinimum = 2;
+int addressDateTemperatureMaximum = 6;
+int addressDateHumidityMinimum = 10;
+int addressDateHumidityMaximum = 14;
+int addressDatePressureMinimum = 18;
+int addressDatePressureMaximum = 22;
+int addressTemperatureMinimum = 26;
+int addressTemperatureMaximum = 30;
+int addressHumidityMinimum = 34;
+int addressHumidityMaximum = 38;
+int addressPressureMinimum = 42;
+int addressPressureMaximum = 46;
 
 uint8_t defaultAllValues = 0;
 uint32_t dateTemperatureMinimum = 0;
@@ -66,12 +61,7 @@ float pressureMaximum = -2000.0f;
 void connectionToWiFi();
 void disconnectWiFi();
 void handleReceivedMessage(String message);
-void printLCDMessage(const char* str1, const char* str2 = nullptr, const char* str3 = nullptr, const char* str4 = nullptr);
-void printFullDate(uint8_t col, uint8_t row, uint8_t day, uint8_t month, uint16_t year);
-void printFullTime(uint8_t col, uint8_t row, uint8_t hour, uint8_t minute, uint8_t second);
-void printDayOfTheWeek(uint8_t col, uint8_t row, uint8_t day);
-void printSensorValue(uint8_t col, uint8_t row, float value, const char* measure = nullptr, const char* measure_2 = nullptr);
-void updateEEPROM();
+void updateEEPROM(float temperature, float humidity, float pressure);
 void home();
 void setTime();
 void setDate();
@@ -92,6 +82,41 @@ void setup() {
   }
 
   IrReceiver.begin(IRRECEIVEPIN);
+
+  EEPROM.begin(50);
+
+  // EEPROM.put(addressDefaultAllValues, false);
+  // EEPROM.put(addressDateTemperatureMinimum, dateTemperatureMinimum);
+  // EEPROM.put(addressDateTemperatureMaximum, dateTemperatureMaximum);
+  // EEPROM.put(addressDateHumidityMinimum, dateHumidityMinimum);
+  // EEPROM.put(addressDateHumidityMaximum, dateHumidityMaximum);
+  // EEPROM.put(addressDatePressureMinimum, datePressureMinimum);
+  // EEPROM.put(addressDatePressureMaximum, datePressureMaximum);
+  // EEPROM.put(addressTemperatureMinimum, temperatureMinimum);
+  // EEPROM.put(addressTemperatureMaximum, temperatureMaximum);
+  // EEPROM.put(addressHumidityMinimum, humidityMinimum);
+  // EEPROM.put(addressHumidityMaximum, humidityMaximum);
+  // EEPROM.put(addressPressureMinimum, pressureMinimum);
+  // EEPROM.put(addressPressureMaximum, pressureMaximum);
+  // EEPROM.put(addressDefaultAllValues, defaultAllValues);
+  // EEPROM.commit();
+  // while(true);
+
+  EEPROM.get(addressDefaultAllValues, defaultAllValues);
+  if (defaultAllValues) {
+    EEPROM.get(addressDateTemperatureMinimum, dateTemperatureMinimum);
+    EEPROM.get(addressDateTemperatureMaximum, dateTemperatureMaximum);
+    EEPROM.get(addressDateHumidityMinimum, dateHumidityMinimum);
+    EEPROM.get(addressDateHumidityMaximum, dateHumidityMaximum);
+    EEPROM.get(addressDatePressureMinimum, datePressureMinimum);
+    EEPROM.get(addressDatePressureMaximum, datePressureMaximum);
+    EEPROM.get(addressTemperatureMinimum, temperatureMinimum);
+    EEPROM.get(addressTemperatureMaximum, temperatureMaximum);
+    EEPROM.get(addressHumidityMinimum, humidityMinimum);
+    EEPROM.get(addressHumidityMaximum, humidityMaximum);
+    EEPROM.get(addressPressureMinimum, pressureMinimum);
+    EEPROM.get(addressPressureMaximum, pressureMaximum);
+  }
 
   MenuItem* clockMenu = new MenuItem("Clock Menu");
   MenuItem* setTimeSubmenu = new MenuItem("Set Time");
@@ -154,6 +179,7 @@ void loop() {
   if (millis() > readSensorTimer + 2000) {
     readSensorTimer = millis();
     meteoSensors.read();
+    updateEEPROM(meteoSensors.getTemperature(), meteoSensors.getHumidity(), meteoSensors.getPressure());
   }
 
   IRRawDataType button_click = getIrReceiverCommand();
@@ -201,10 +227,7 @@ void loop() {
 }
 
 void connectionToWiFi() {
-  lcd.clear();
-  lcd.print("Connection to");
-  lcd.setCursor(0, 1);
-  lcd.print("WiFi...");
+  lcd.clearAndPrintMessage(MessageTime::NO_PAUSE, "Connection to", "WiFi...");
   delay(1000);
   WiFi.mode(wifi_mode_t::WIFI_MODE_STA);
   WiFi.begin(ssid.c_str(), password.c_str());
@@ -216,7 +239,7 @@ void connectionToWiFi() {
     }
     else {
       connected = true;
-      printLCDMessage("WiFi connection", "successful!");
+      lcd.clearAndPrintMessage(MessageTime::DEFAULT_PAUSE, "WiFi connection", "successful!");
       lcd.clear();
       break;
     }
@@ -231,14 +254,14 @@ void connectionToWiFi() {
       handleReceivedMessage(payload);
     }
     else {
-      printLCDMessage("Error HTTP!", "Date and Time will", "be set by default.");
+      lcd.clearAndPrintMessage(MessageTime::DEFAULT_PAUSE, "Error HTTP!", "The date and time", "will be set", "by default.");
       disconnectWiFi();
       lcd.clear();
     }
     http.end();
   }
   else {
-    printLCDMessage("Error connection!", "Date and Time will", "be set by default.");
+    lcd.clearAndPrintMessage(MessageTime::DEFAULT_PAUSE, "Error connection!", "The date and time", "will be set", "by default.");
     disconnectWiFi();
     lcd.clear();
   }
@@ -252,7 +275,7 @@ void handleReceivedMessage(String message) {
   JsonDocument doc;
   DeserializationError error = deserializeJson(doc, message);
   if (error) {
-    printLCDMessage("Deserialize error!", "Date and Time will", "be set by default.");
+    lcd.clearAndPrintMessage(MessageTime::DEFAULT_PAUSE, "Deserialize error!", "The date and time", "will be set", "by default.");
     lcd.clear();
     return;
   }
@@ -260,124 +283,72 @@ void handleReceivedMessage(String message) {
   int raw_offset = doc["raw_offset"];
   unixtime += raw_offset;
   rtc.adjust(DateTime(unixtime));
-  printLCDMessage("The date and time", "were successfully", "received!");
+  lcd.clearAndPrintMessage(MessageTime::DEFAULT_PAUSE, "The date and time", "were successfully", "received!");
   lcd.clear();
 }
 
-void printLCDMessage(const char* str1, const char* str2, const char* str3, const char* str4) {
-  lcd.clear();
-  lcd.print(str1);
-  if (str2) {
-    lcd.setCursor(0, 1);
-    lcd.print(str2);
-    if (str3) {
-      lcd.setCursor(0, 2);
-      lcd.print(str3);
-      if (str4) {
-        lcd.setCursor(0, 3);
-        lcd.print(str4);
-      }
-    }
-  }
-  delay(showMessageTime);
-}
-
-void printFullDate(uint8_t col, uint8_t row, uint8_t day, uint8_t month, uint16_t year) {
-  lcd.setCursor(col, row);
-  if (day < 10) { lcd.print("0"); }
-  lcd.print(day);
-  lcd.print(".");
-  if (month < 10) { lcd.print("0"); }
-  lcd.print(month);
-  lcd.print(".");
-  lcd.print(year);
-}
-
-void printFullTime(uint8_t col, uint8_t row, uint8_t hour, uint8_t minute, uint8_t second) {
-  lcd.setCursor(col, row);
-  if (hour < 10) { lcd.print("0"); }
-  lcd.print(hour);
-  lcd.print(":");
-  if (minute < 10) { lcd.print("0"); }
-  lcd.print(minute);
-  lcd.print(":");
-  if (second < 10) { lcd.print("0"); }
-  lcd.print(second);
-}
-
-void printDayOfTheWeek(uint8_t col, uint8_t row, uint8_t day) {
-  lcd.setCursor(col, row);
-  lcd.print(dayOfTheWeekStr[day]);
-}
-
-void printSensorValue(uint8_t col, uint8_t row, float value, const char* measure, const char* measure_2) {
-  lcd.setCursor(col, row);
-  lcd.print(value, 1);
-  if (measure) { lcd.print(measure); }
-  if (measure_2) { lcd.print(measure_2); }
-}
-
-void updateEEPROM() {
-  if (temperatureMinimum > meteoSensors.getTemperature()) {
+void updateEEPROM(float temperature, float humidity, float pressure) {
+  if (temperatureMinimum > temperature) {
     DateTime now_temperature_minimum(rtc.now());
-    temperatureMinimum = meteoSensors.getTemperature();
+    temperatureMinimum = temperature;
     dateTemperatureMinimum = now_temperature_minimum.unixtime();
-    // EEPROM.put(addressDateTemperatureMinimum, dateTemperatureMinimum);
-    // EEPROM.put(addressTemperatureMinimum, temperatureMinimum);
+    EEPROM.put(addressDateTemperatureMinimum, dateTemperatureMinimum);
+    EEPROM.put(addressTemperatureMinimum, temperatureMinimum);
     if (!defaultAllValues) {
-      // EEPROM.put(addressDefaultAllValues, true);
+      EEPROM.put(addressDefaultAllValues, true);
     }
   }
-  if (temperatureMaximum < meteoSensors.getTemperature()) {
+  if (temperatureMaximum < temperature) {
     DateTime now_temperature_maximum(rtc.now());
-    temperatureMaximum = meteoSensors.getTemperature();
+    temperatureMaximum = temperature;
     dateTemperatureMaximum = now_temperature_maximum.unixtime();
-    // EEPROM.put(addressDateTemperatureMaximum, dateTemperatureMaximum);
-    // EEPROM.put(addressTemperatureMaximum, temperatureMaximum);
+    EEPROM.put(addressDateTemperatureMaximum, dateTemperatureMaximum);
+    EEPROM.put(addressTemperatureMaximum, temperatureMaximum);
     if (!defaultAllValues) {
-      // EEPROM.put(addressDefaultAllValues, true);
+      EEPROM.put(addressDefaultAllValues, true);
     }
   }
-  if (humidityMinimum > meteoSensors.getHumidity()) {
+  if (humidityMinimum > humidity) {
     DateTime now_humidity_minimum(rtc.now());
-    humidityMinimum = meteoSensors.getHumidity();
+    humidityMinimum = humidity;
     dateHumidityMinimum = now_humidity_minimum.unixtime();
-    // EEPROM.put(addressDateHumidityMinimum, dateHumidityMinimum);
-    // EEPROM.put(addressHumidityMinimum, humidityMinimum);
+    EEPROM.put(addressDateHumidityMinimum, dateHumidityMinimum);
+    EEPROM.put(addressHumidityMinimum, humidityMinimum);
     if (!defaultAllValues) {
-      // EEPROM.put(addressDefaultAllValues, true);
+      EEPROM.put(addressDefaultAllValues, true);
     }
   }
-  if (humidityMaximum < meteoSensors.getHumidity()) {
+  if (humidityMaximum < humidity) {
     DateTime now_humidity_maximum(rtc.now());
-    humidityMaximum = meteoSensors.getHumidity();
+    humidityMaximum = humidity;
     dateHumidityMaximum = now_humidity_maximum.unixtime();
-    // EEPROM.put(addressDateHumidityMaximum, dateHumidityMaximum);
-    // EEPROM.put(addressHumidityMaximum, humidityMaximum);
+    EEPROM.put(addressDateHumidityMaximum, dateHumidityMaximum);
+    EEPROM.put(addressHumidityMaximum, humidityMaximum);
     if (!defaultAllValues) {
-      // EEPROM.put(addressDefaultAllValues, true);
+      EEPROM.put(addressDefaultAllValues, true);
     }
   }
-  if (pressureMinimum > meteoSensors.getPressure()) {
+  if (pressureMinimum > pressure) {
     DateTime now_pressure_minimum(rtc.now());
-    pressureMinimum = meteoSensors.getPressure();
+    pressureMinimum = pressure;
     datePressureMinimum = now_pressure_minimum.unixtime();
-    // EEPROM.put(addressDatePressureMinimum, datePressureMinimum);
-    // EEPROM.put(addressPressureMinimum, pressureMinimum);
+    EEPROM.put(addressDatePressureMinimum, datePressureMinimum);
+    EEPROM.put(addressPressureMinimum, pressureMinimum);
     if (!defaultAllValues) {
-      // EEPROM.put(addressDefaultAllValues, true);
+      EEPROM.put(addressDefaultAllValues, true);
     }
   }
-  if (pressureMaximum < meteoSensors.getPressure()) {
+  if (pressureMaximum < pressure) {
     DateTime now_pressure_maximum(rtc.now());
-    pressureMaximum = meteoSensors.getPressure();
+    pressureMaximum = pressure;
     datePressureMaximum = now_pressure_maximum.unixtime();
-    // EEPROM.put(addressDatePressureMaximum, datePressureMaximum);
-    // EEPROM.put(addressPressureMaximum, pressureMaximum);
+    EEPROM.put(addressDatePressureMaximum, datePressureMaximum);
+    EEPROM.put(addressPressureMaximum, pressureMaximum);
     if (!defaultAllValues) {
-      // EEPROM.put(addressDefaultAllValues, true);
+      EEPROM.put(addressDefaultAllValues, true);
     }
   }
+  EEPROM.commit();
 }
 
 void home() {
@@ -387,54 +358,54 @@ void home() {
     lcd.setCursor(0, 1);
     lcd.print(temperatureMinimum, 1);
     DateTime dt_temperature_minimum(dateTemperatureMinimum);
-    printFullTime(0, 2, dt_temperature_minimum.hour(), dt_temperature_minimum.minute(), dt_temperature_minimum.second());
-    printFullDate(0, 3, dt_temperature_minimum.day(), dt_temperature_minimum.month(), dt_temperature_minimum.year() % 100);
+    lcd.printTime(0, 2, dt_temperature_minimum.hour(), dt_temperature_minimum.minute(), dt_temperature_minimum.second());
+    lcd.printDate(0, 3, dt_temperature_minimum.day(), dt_temperature_minimum.month(), dt_temperature_minimum.year() % 100);
     lcd.setCursor(10, 0);
     lcd.print("TMax:");
     lcd.setCursor(10, 1);
     lcd.print(temperatureMaximum, 1);
     DateTime dt_temperature_maximum(dateTemperatureMaximum);
-    printFullTime(10, 2, dt_temperature_maximum.hour(), dt_temperature_maximum.minute(), dt_temperature_maximum.second());
-    printFullDate(10, 3, dt_temperature_maximum.day(), dt_temperature_maximum.month(), dt_temperature_maximum.year() % 100);
+    lcd.printTime(10, 2, dt_temperature_maximum.hour(), dt_temperature_maximum.minute(), dt_temperature_maximum.second());
+    lcd.printDate(10, 3, dt_temperature_maximum.day(), dt_temperature_maximum.month(), dt_temperature_maximum.year() % 100);
   }
   else if (statisticsAll == StatisticsAll::statisticsHumidity) {
     lcd.print("HMin:");
     lcd.setCursor(0, 1);
     lcd.print(humidityMinimum, 1);
     DateTime dt_humidity_minimum(dateHumidityMinimum);
-    printFullTime(0, 2, dt_humidity_minimum.hour(), dt_humidity_minimum.minute(), dt_humidity_minimum.second());
-    printFullDate(0, 3, dt_humidity_minimum.day(), dt_humidity_minimum.month(), dt_humidity_minimum.year() % 100);
+    lcd.printTime(0, 2, dt_humidity_minimum.hour(), dt_humidity_minimum.minute(), dt_humidity_minimum.second());
+    lcd.printDate(0, 3, dt_humidity_minimum.day(), dt_humidity_minimum.month(), dt_humidity_minimum.year() % 100);
     lcd.setCursor(10, 0);
     lcd.print("HMax:");
     lcd.setCursor(10, 1);
     lcd.print(humidityMaximum, 1);
     DateTime dt_humidity_maximum(dateHumidityMaximum);
-    printFullTime(10, 2, dt_humidity_maximum.hour(), dt_humidity_maximum.minute(), dt_humidity_maximum.second());
-    printFullDate(10, 3, dt_humidity_maximum.day(), dt_humidity_maximum.month(), dt_humidity_maximum.year() % 100);
+    lcd.printTime(10, 2, dt_humidity_maximum.hour(), dt_humidity_maximum.minute(), dt_humidity_maximum.second());
+    lcd.printDate(10, 3, dt_humidity_maximum.day(), dt_humidity_maximum.month(), dt_humidity_maximum.year() % 100);
   }
   else if (statisticsAll == StatisticsAll::statisticsPressure) {
     lcd.print("PMin:");
     lcd.setCursor(0, 1);
     lcd.print(pressureMinimum, 1);
     DateTime dt_pressure_minimum(datePressureMinimum);
-    printFullTime(0, 2, dt_pressure_minimum.hour(), dt_pressure_minimum.minute(), dt_pressure_minimum.second());
-    printFullDate(0, 3, dt_pressure_minimum.day(), dt_pressure_minimum.month(), dt_pressure_minimum.year() % 100);
+    lcd.printTime(0, 2, dt_pressure_minimum.hour(), dt_pressure_minimum.minute(), dt_pressure_minimum.second());
+    lcd.printDate(0, 3, dt_pressure_minimum.day(), dt_pressure_minimum.month(), dt_pressure_minimum.year() % 100);
     lcd.setCursor(10, 0);
     lcd.print("PMax:");
     lcd.setCursor(10, 1);
     lcd.print(pressureMaximum, 1);
     DateTime dt_pressure_maximum(datePressureMaximum);
-    printFullTime(10, 2, dt_pressure_maximum.hour(), dt_pressure_maximum.minute(), dt_pressure_maximum.second());
-    printFullDate(10, 3, dt_pressure_maximum.day(), dt_pressure_maximum.month(), dt_pressure_maximum.year() % 100);
+    lcd.printTime(10, 2, dt_pressure_maximum.hour(), dt_pressure_maximum.minute(), dt_pressure_maximum.second());
+    lcd.printDate(10, 3, dt_pressure_maximum.day(), dt_pressure_maximum.month(), dt_pressure_maximum.year() % 100);
   }
   else {
     DateTime now = rtc.now();
-    printFullTime(0, 0, now.hour(), now.minute(), now.second());
-    printDayOfTheWeek(10, 0, now.dayOfTheWeek());
-    printFullDate(0, 1, now.day(), now.month(), now.year());
-    printSensorValue(0, 3, meteoSensors.getTemperature(), "\xDF", "C ");
-    printSensorValue(10, 2, meteoSensors.getHumidity(), "% ");
-    printSensorValue(10, 3, meteoSensors.getPressure(), "mmHg ");
+    lcd.printTime(0, 0, now.hour(), now.minute(), now.second());
+    lcd.printDayOfTheWeek(10, 0, now.dayOfTheWeek());
+    lcd.printDate(0, 1, now.day(), now.month(), now.year());
+    lcd.printSensorValue(0, 3, meteoSensors.getTemperature(), "\xDF", "C ");
+    lcd.printSensorValue(10, 2, meteoSensors.getHumidity(), "% ");
+    lcd.printSensorValue(10, 3, meteoSensors.getPressure(), "mmHg ");
 
     static uint64_t statusWiFiTimer = 0;
     int rssi = WiFi.RSSI();
@@ -443,7 +414,7 @@ void home() {
     //Serial.printf("RSSI: %d\n", rssi);
     lcd.setCursor(19, 0);
     if ((rssi <= 0 && rssi > -25) || rssi < -90) {
-      lcd.print('X');
+      lcd.print(static_cast<char>(0));
     }
     else if (rssi <= -25 && rssi >= -50) {
       lcd.print(static_cast<char>(5));
@@ -473,76 +444,39 @@ void setTime() {
   uint8_t second = dt.second();
 
   lcd.clear();
-  lcd.setCursor(0, 2);
-
-  if (hour < 10) {
-    lcd.print(0);
-  }
-  lcd.print(hour);
-  lcd.print(":");
-  if (minute < 10) {
-    lcd.print(0);
-  }
-  lcd.print(minute);
-  lcd.print(":");
-  if (second < 10) {
-    lcd.print(0);
-  }
-  lcd.print(second);
-
-  lcd.setCursor(0, 0);
-  lcd.print("Enter hours:        ");
+  lcd.printTime(0, 2, hour, minute, second);
+  lcd.printMessage(0, 0, "Enter hours:");
   hour = setDateTimeValue<uint8_t>(hour, 0, 23, 0);
 
-  lcd.setCursor(0, 0);
-  lcd.print("Enter minutes:      ");
+  lcd.printMessage(0, 0, "Enter minutes:");
   minute = setDateTimeValue<uint8_t>(minute, 0, 59, 3);
 
-  lcd.setCursor(0, 0);
-  lcd.print("Enter seconds:      ");
+  lcd.printMessage(0, 0, "Enter seconds:");
   second = setDateTimeValue<uint8_t>(second, 0, 59, 6);
 
   rtc.adjust(DateTime(rtc.now().year(), rtc.now().month(), rtc.now().day(), hour, minute, second));
 
-  printLCDMessage("Date has been set!");
+  lcd.clearAndPrintMessage(MessageTime::DEFAULT_PAUSE, "Date has been set!");
 }
 
 void setDate() {
   bool dateIsCorrect = false;
   DateTime dt = rtc.now();
-  uint8_t day = 0;
-  uint8_t month = 0;
-  uint16_t year = 0;
+  uint8_t day = dt.day();
+  uint8_t month = dt.month();
+  uint16_t year = dt.year();
 
   do {
     lcd.clear();
-    lcd.setCursor(0, 2);
+    lcd.printDate(0, 2, day, month, year);
 
-    if (dt.day() < 10) {
-      lcd.print(0);
-    }
-    lcd.print(dt.day());
-    lcd.print(".");
-    if (dt.month() < 10) {
-      lcd.print(0);
-    }
-    lcd.print(dt.month());
-    lcd.print(".");
-    lcd.print(dt.year());
-
-    lcd.setCursor(0, 0);
-    lcd.print("Enter day:         ");
-    day = dt.day();
+    lcd.printMessage(0, 0, "Enter day:");
     day = setDateTimeValue<uint8_t>(day, 1, 31, 0);
 
-    lcd.setCursor(0, 0);
-    lcd.print("Enter month:       ");
-    month = dt.month();
+    lcd.printMessage(0, 0, "Enter month:");
     month = setDateTimeValue<uint8_t>(month, 1, 12, 3);
 
-    lcd.setCursor(0, 0);
-    lcd.print("Enter year:        ");
-    year = dt.year();
+    lcd.printMessage(0, 0, "Enter year:");
     year = setDateTimeValue<uint16_t>(year, 2000, 2099, 6);
 
     DateTime current(year, month, day, rtc.now().hour(), rtc.now().minute(), rtc.now().second());
@@ -550,34 +484,21 @@ void setDate() {
       dateIsCorrect = true;
     }
     else {
-      printLCDMessage("The date is not", "compatible with the", "month or the", "year!");
-      lcd.clear();
-      lcd.print("Press 'OK' to");
-      lcd.setCursor(0, 1);
-      lcd.print("autocorrect or");
-      lcd.setCursor(0, 2);
-      lcd.print("'#' to enter a");
-      lcd.setCursor(0, 3);
-      lcd.print("different date.");
+      lcd.clearAndPrintMessage(MessageTime::DEFAULT_PAUSE, "The date is not", "compatible with the", "month or the", "year!");
+      lcd.clearAndPrintMessage(MessageTime::NO_PAUSE, "Press 'OK' to", "autocorrect or", "'#' to enter a", "different date.");
       while (true) {
-        if (IrReceiver.decode()) {
-          if (IrReceiver.decodedIRData.protocol != UNKNOWN) {
-            if (IrReceiver.decodedIRData.command != 0) {
-              if (IrReceiver.decodedIRData.decodedRawData == button_ok) {
-                while (!current.isValid()) {
-                  day--;
-                  current = DateTime(year, month, day, rtc.now().hour(), rtc.now().minute(), rtc.now().second());
-                }
-                dateIsCorrect = true;
-                printLCDMessage("Autocorrect!");
-                break;
-              }
-              else if (IrReceiver.decodedIRData.decodedRawData == button_hash) {
-                break;
-              }
-            }
-            IrReceiver.resume();
+        IRRawDataType button_click = getIrReceiverCommand();
+        if (button_click == button_ok) {
+          while (!current.isValid()) {
+            day--;
+            current = DateTime(year, month, day, rtc.now().hour(), rtc.now().minute(), rtc.now().second());
           }
+          dateIsCorrect = true;
+          lcd.clearAndPrintMessage(MessageTime::DEFAULT_PAUSE, "Autocorrect!");
+          break;
+        }
+        else if (button_click == button_hash) {
+          break;
         }
       }
     }
@@ -587,7 +508,7 @@ void setDate() {
   dt = rtc.now();
   rtc.adjust(DateTime(year, month, day, dt.hour(), dt.minute(), dt.second()));
 
-  printLCDMessage("Date has been set!");
+  lcd.clearAndPrintMessage(MessageTime::DEFAULT_PAUSE, "Date has been set!");
 }
 
 template<typename T>
@@ -599,38 +520,31 @@ T setDateTimeValue(T currentVal, T minVal, T maxVal, uint8_t position) {
   lcd.print(currentVal);
 
   while (true) {
-    if (IrReceiver.decode()) {
-      if (IrReceiver.decodedIRData.protocol != UNKNOWN) {
-        if (IrReceiver.decodedIRData.command != 0) {
-          if (IrReceiver.decodedIRData.decodedRawData == button_ok) {
-            IrReceiver.resume();
-            return currentVal;
-          }
-          else if (IrReceiver.decodedIRData.decodedRawData == button_up) {
-            if (currentVal >= maxVal) {
-              currentVal = minVal;
-            }
-            else {
-              currentVal++;
-            }
-          }
-          else if (IrReceiver.decodedIRData.decodedRawData == button_down) {
-            if (currentVal <= minVal) {
-              currentVal = maxVal;
-            }
-            else {
-              currentVal--;
-            }
-          }
-          IrReceiver.decodedIRData.command = 0;
-          lcd.setCursor(position, 2);
-          if (currentVal < 10) {
-            lcd.print(0);
-          }
-          lcd.print(currentVal);
-        }
-        IrReceiver.resume();
+    IRRawDataType button_click = getIrReceiverCommand();
+    if (button_click == button_ok) {
+      IrReceiver.resume();
+      return currentVal;
+    }
+    else if (button_click == button_up) {
+      if (currentVal >= maxVal) {
+        currentVal = minVal;
+      }
+      else {
+        currentVal++;
       }
     }
+    else if (button_click == button_down) {
+      if (currentVal <= minVal) {
+        currentVal = maxVal;
+      }
+      else {
+        currentVal--;
+      }
+    }
+    lcd.setCursor(position, 2);
+    if (currentVal < 10) {
+      lcd.print(0);
+    }
+    lcd.print(currentVal);
   }
 }

@@ -3,6 +3,8 @@
 
 #include <IRremote.hpp>
 
+#define IRRECEIVEPIN 0
+
 static constexpr IRRawDataType button_asterisk = 0xBD42FF00;
 static constexpr IRRawDataType button_hash     = 0xB54AFF00;
 static constexpr IRRawDataType button_ok       = 0xBF40FF00;
