@@ -18,8 +18,9 @@ IRRawDataType getIrReceiverCommand() {
       if (IrReceiver.decodedIRData.command != 0) {
         rawCommand = IrReceiver.decodedIRData.decodedRawData;
       }
-      IrReceiver.resume();
     }
+    IrReceiver.resume();
+    Serial.println("command");
   }
   return rawCommand;
 }

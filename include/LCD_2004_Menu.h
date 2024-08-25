@@ -27,9 +27,9 @@ public:
 
 	void init();
 
-	bool addMenuItem(MenuItem* menuItem);
+	void setMenu(MenuItem* menuItem);
 
-	void nextMenuItem();
+	void returnToPreviousMenu();
 
 	void upCounter();
 
@@ -57,18 +57,11 @@ public:
 
 	void printSensorValue(uint8_t col, uint8_t row, float value, const char* measure = nullptr, const char* measure_2 = nullptr);
 
-protected:
-	void draw();
-
-	void setCurrentMenuItem(MenuItem* menuItem, size_t posCounter);
-
-	const char* alignmentStr(const char* str);
-
 private:
 	size_t m_counter;
 	bool m_isActive;
+	MenuItem* m_menuItem;
 	MenuItem* m_currentMenuItem;
-	std::vector<MenuItem*> m_menuItem;
 	std::stack<std::pair<MenuItem*, size_t>> m_prevMenuItem;
 	uint16_t m_showMessageTime;
 	inline static const char* m_dayOfTheWeek[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
@@ -80,11 +73,12 @@ private:
 		{ B00000, B00000, B00010, B00110, B01110, B11110, B11110 },
 		{ B00000, B00001, B00011, B00111, B01111, B11111, B11111 }
 	};
-};
 
-// class f {
-// 	template<typename T>
-// 	f(T) = delete;
-// };
+	void draw();
+
+	void setCurrentMenuItem(MenuItem* menuItem, size_t posCounter);
+
+	const char* alignmentStr(const char* str);
+};
 
 #endif

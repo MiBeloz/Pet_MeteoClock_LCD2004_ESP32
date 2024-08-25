@@ -67,6 +67,7 @@ void setTime();
 void setDate();
 template<typename T>
 T setDateTimeValue(T currentVal, T minVal, T maxVal, uint8_t position);
+void clearEEPROM();
 
 void setup() {
   Serial.begin(9600);
@@ -82,26 +83,9 @@ void setup() {
   }
 
   IrReceiver.begin(IRRECEIVEPIN);
+  //IrReceiver.start();
 
   EEPROM.begin(50);
-
-  // EEPROM.put(addressDefaultAllValues, false);
-  // EEPROM.put(addressDateTemperatureMinimum, dateTemperatureMinimum);
-  // EEPROM.put(addressDateTemperatureMaximum, dateTemperatureMaximum);
-  // EEPROM.put(addressDateHumidityMinimum, dateHumidityMinimum);
-  // EEPROM.put(addressDateHumidityMaximum, dateHumidityMaximum);
-  // EEPROM.put(addressDatePressureMinimum, datePressureMinimum);
-  // EEPROM.put(addressDatePressureMaximum, datePressureMaximum);
-  // EEPROM.put(addressTemperatureMinimum, temperatureMinimum);
-  // EEPROM.put(addressTemperatureMaximum, temperatureMaximum);
-  // EEPROM.put(addressHumidityMinimum, humidityMinimum);
-  // EEPROM.put(addressHumidityMaximum, humidityMaximum);
-  // EEPROM.put(addressPressureMinimum, pressureMinimum);
-  // EEPROM.put(addressPressureMaximum, pressureMaximum);
-  // EEPROM.put(addressDefaultAllValues, defaultAllValues);
-  // EEPROM.commit();
-  // while(true);
-
   EEPROM.get(addressDefaultAllValues, defaultAllValues);
   if (defaultAllValues) {
     EEPROM.get(addressDateTemperatureMinimum, dateTemperatureMinimum);
@@ -118,13 +102,15 @@ void setup() {
     EEPROM.get(addressPressureMaximum, pressureMaximum);
   }
 
+  MenuItem* mainMenu = new MenuItem("Menu");
+
   MenuItem* clockMenu = new MenuItem("Clock Menu");
   MenuItem* setTimeSubmenu = new MenuItem("Set Time");
   MenuItem* setDateSubmenu = new MenuItem("Set Date");
-  clockMenu->addMenuItem(setTimeSubmenu);
-  clockMenu->addMenuItem(setDateSubmenu);
   setTimeSubmenu->setFunction(setTime);
   setDateSubmenu->setFunction(setDate);
+  clockMenu->addMenuItem(setTimeSubmenu);
+  clockMenu->addMenuItem(setDateSubmenu);
   
   MenuItem* alarmMenu = new MenuItem("Alarm Menu");
   MenuItem* alarmsSubmenu = new MenuItem("Alarms");
@@ -134,7 +120,10 @@ void setup() {
 
   MenuItem* displayMenu = new MenuItem("Display Menu");
   MenuItem* onOffBacklightSubmenu = new MenuItem("On/Off Backlight");
+  MenuItem* clearEEPROMSubmenu = new MenuItem("Clear EEPROM");
+  clearEEPROMSubmenu->setFunction(clearEEPROM);
   displayMenu->addMenuItem(onOffBacklightSubmenu);
+  displayMenu->addMenuItem(clearEEPROMSubmenu);
 
   MenuItem* wifiMenu = new MenuItem("WiFi Menu");
   MenuItem* connectWifiSubmenu = new MenuItem("Connect");
@@ -166,10 +155,12 @@ void setup() {
   setRateWifiSubmenu->addMenuItem(rateEveryWeekWifiSubmenu);
   setRateWifiSubmenu->addMenuItem(rateEveryMonthWifiSubmenu);
 
-  lcd.addMenuItem(clockMenu);
-  lcd.addMenuItem(alarmMenu);
-  lcd.addMenuItem(displayMenu);
-  lcd.addMenuItem(wifiMenu);
+  mainMenu->addMenuItem(clockMenu);
+  mainMenu->addMenuItem(alarmMenu);
+  mainMenu->addMenuItem(displayMenu);
+  mainMenu->addMenuItem(wifiMenu);
+
+  lcd.setMenu(mainMenu);
 
   connectionToWiFi();
 }
@@ -185,7 +176,7 @@ void loop() {
   IRRawDataType button_click = getIrReceiverCommand();
   if (lcd.isActive()) {
     if (button_click == button_asterisk) {
-      lcd.nextMenuItem();
+      lcd.returnToPreviousMenu();
     }
     else if (button_click == button_up) {
       lcd.upCounter();
@@ -547,4 +538,36 @@ T setDateTimeValue(T currentVal, T minVal, T maxVal, uint8_t position) {
     }
     lcd.print(currentVal);
   }
+}
+
+void clearEEPROM() {
+  defaultAllValues = 0;
+  dateTemperatureMinimum = 0;
+  dateTemperatureMaximum = 0;
+  dateHumidityMinimum = 0;
+  dateHumidityMaximum = 0;
+  datePressureMinimum = 0;
+  datePressureMaximum = 0;
+  temperatureMinimum = 100.0f;
+  temperatureMaximum = -100.0f;
+  humidityMinimum = 100.0f;
+  humidityMaximum = -100.0;
+  pressureMinimum = 2000.0f;
+  pressureMaximum = -2000.0f;
+  EEPROM.put(addressDateTemperatureMinimum, dateTemperatureMinimum);
+  EEPROM.put(addressDateTemperatureMaximum, dateTemperatureMaximum);
+  EEPROM.put(addressDateHumidityMinimum, dateHumidityMinimum);
+  EEPROM.put(addressDateHumidityMaximum, dateHumidityMaximum);
+  EEPROM.put(addressDatePressureMinimum, datePressureMinimum);
+  EEPROM.put(addressDatePressureMaximum, datePressureMaximum);
+  EEPROM.put(addressTemperatureMinimum, temperatureMinimum);
+  EEPROM.put(addressTemperatureMaximum, temperatureMaximum);
+  EEPROM.put(addressHumidityMinimum, humidityMinimum);
+  EEPROM.put(addressHumidityMaximum, humidityMaximum);
+  EEPROM.put(addressPressureMinimum, pressureMinimum);
+  EEPROM.put(addressPressureMaximum, pressureMaximum);
+  EEPROM.put(addressDefaultAllValues, defaultAllValues);
+  EEPROM.commit();
+  delay(200);
+  lcd.clearAndPrintMessage(MessageTime::DEFAULT_PAUSE, "EEPROM clear!");
 }
